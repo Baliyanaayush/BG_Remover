@@ -1,31 +1,33 @@
-const express = require("express")
-require('dotenv').config()
-const cors = require("cors")
-const main = require("./config/db")
+const express = require("express");
+require("dotenv").config();
+const cors = require("cors");
+const main = require("./config/db");
+const PORT = process.env.LISTENING_PORT || 3000;
+const app = express();
 
-const app = express()
-app.use(express.json())
+app.use(express.json());
+app.use(cors());
 
-app.use(cors({
-    origin:"http://localhost:5173",
-    credentials:true
-}))
+// MongoDB connection
+main()
+  .then(() => {
+    console.log("MongoDB connected");
+  })
+  .catch((error) => {
+    console.log("MongoDB connection error:", error);
+  });
 
+// Test route
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "BG Remover API is running 🚀",
+  });
+});
 
-const iniatilizeConnection = async()=>{
+// Your routes
+// app.use("/api", yourRouter);
 
-    try {
-        // db connection and other connection
-          await main()
-        console.log("MongoDB is connected")
+// IMPORTANT FOR VERCEL
+module.exports = app;
 
-        app.listen(process.env.LISTENING_PORT,()=>{
-        console.log("Listening at port 3000 ")
-})
-    } catch (error) {
-        console.log("Error Occured in connecting")
-    }
-
-}
-
-iniatilizeConnection()
