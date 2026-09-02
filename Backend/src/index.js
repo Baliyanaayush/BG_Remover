@@ -1,23 +1,23 @@
 const express = require("express");
-require("dotenv").config();
 const cors = require("cors");
+require("dotenv").config();
 const main = require("./config/db");
-const PORT = process.env.LISTENING_PORT || 3000;
+const userRouter = require("./routes/userroutes");
+
 const app = express();
 
+const PORT = process.env.LISTENING_PORT || 3000;
 app.use(express.json());
-app.use(cors());
 
-// MongoDB connection
-main()
-  .then(() => {
-    console.log("MongoDB connected");
-  })
-  .catch((error) => {
-    console.log("MongoDB connection error:", error);
-  });
+// app.use(
+//   cors({
+//     origin: "http://localhost:5173",
+//     credentials: true,
+//   })
+// );
 
-// Test route
+// ---------------- Demo Route ----------------
+
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -25,8 +25,24 @@ app.get("/", (req, res) => {
   });
 });
 
-// Your routes
-// app.use("/api", yourRouter);
+// Routes 
+
+app.use("/user", userRouter);
+
+// MongoDB + Server
+
+main()
+  .then(() => {
+    console.log("MongoDB connected");
+
+    app.listen(PORT, () => {
+      console.log(`BG Remover API listening on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.log("MongoDB connection error:", error.message);
+    process.exit(1);
+  });
 
 // IMPORTANT FOR VERCEL
 module.exports = app;
