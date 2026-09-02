@@ -6,7 +6,7 @@ const userRouter = require("./routes/userroutes");
 
 const app = express();
 
-const PORT = process.env.LISTENING_PORT || 3000;
+// const PORT = process.env.LISTENING_PORT || 3000;
 app.use(express.json());
 
 // app.use(
@@ -35,9 +35,9 @@ main()
   .then(() => {
     console.log("MongoDB connected");
 
-    app.listen(PORT, () => {
-      console.log(`BG Remover API listening on port ${PORT}`);
-    });
+    // app.listen(PORT, () => {
+    //   console.log(`BG Remover API listening on port ${PORT}`);
+    // });
   })
   .catch((error) => {
     console.log("MongoDB connection error:", error.message);
