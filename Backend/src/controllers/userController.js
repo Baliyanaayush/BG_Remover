@@ -1,46 +1,28 @@
+
 const User = require("../models/user");
+const { verifyWebhook } = require("@clerk/express/webhooks");
 
-
-// API controller to manage Clerk with Database
 const clerkWebhooks = async (req, res) => {
   try {
-    const { Webhook } = await import("svix");
     console.log("🔥 WEBHOOK RECEIVED");
 
-    // Create Svix webhook instance
-    const whook = new Webhook(
-      process.env.CLERK_WEBHOOK_SECRET
-    );
+    const evt = await verifyWebhook(req);
 
-    // Get Svix headers
-    const svixHeaders = {
-      "svix-id": req.headers["svix-id"],
-      "svix-timestamp": req.headers["svix-timestamp"],
-      "svix-signature": req.headers["svix-signature"],
-    };
+    console.log("EVENT TYPE:", evt.type);
 
-    // IMPORTANT:
-    // req.body is a Buffer because we used express.raw()
-    const payload = req.body.toString();
-
-    // Verify webhook signature
-const evt = await whook.verify(payload, svixHeaders);
     const { data, type } = evt;
 
-    console.log("TYPE:", type);
-    console.log("CLERK ID:", data.id);
-
     switch (type) {
-      // ---------------- USER CREATED ----------------
       case "user.created": {
         const userData = {
           clerkId: data.id,
-          emailId:
-            data.email_addresses?.[0]?.email_address || "",
+          emailId: data.email_addresses?.[0]?.email_address || "",
           firstname: data.first_name || "",
           lastname: data.last_name || "",
           photo: data.image_url || "",
         };
+
+        console.log("Creating user:", userData);
 
         await User.create(userData);
 
@@ -52,11 +34,9 @@ const evt = await whook.verify(payload, svixHeaders);
         });
       }
 
-      // ---------------- USER UPDATED ----------------
       case "user.updated": {
         const userData = {
-          emailId:
-            data.email_addresses?.[0]?.email_address || "",
+          emailId: data.email_addresses?.[0]?.email_address || "",
           firstname: data.first_name || "",
           lastname: data.last_name || "",
           photo: data.image_url || "",
@@ -76,7 +56,6 @@ const evt = await whook.verify(payload, svixHeaders);
         });
       }
 
-      // ---------------- USER DELETED ----------------
       case "user.deleted": {
         await User.findOneAndDelete({
           clerkId: data.id,
@@ -90,18 +69,16 @@ const evt = await whook.verify(payload, svixHeaders);
         });
       }
 
-      // ---------------- OTHER EVENTS ----------------
-      default: {
+      default:
         console.log("ℹ️ Event ignored:", type);
 
         return res.status(200).json({
           success: true,
-          message: "Webhook event ignored",
+          message: "Event ignored",
         });
-      }
     }
   } catch (error) {
-    console.log("❌ Webhook Error:", error.message);
+    console.error("❌ Webhook Error:", error);
 
     return res.status(400).json({
       success: false,
