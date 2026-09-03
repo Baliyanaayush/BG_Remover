@@ -1,9 +1,10 @@
 const User = require("../models/user");
-const { Webhook } = require("svix");
+
 
 // API controller to manage Clerk with Database
 const clerkWebhooks = async (req, res) => {
   try {
+    const { Webhook } = await import("svix");
     console.log("🔥 WEBHOOK RECEIVED");
 
     // Create Svix webhook instance
