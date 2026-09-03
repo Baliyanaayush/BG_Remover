@@ -1,8 +1,8 @@
-const express = require("express")
-const {clerkWebhooks} = require("../controllers/userController")
+const express = require("express");
 
+const userRouter = express.Router();
 
-const userRouter = express.Router()
-userRouter.post("/webhooks",clerkWebhooks)
+// Other user routes will come here later
 
-module.exports = userRouter
+module.exports = userRouter;
+

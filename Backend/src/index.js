@@ -1,23 +1,30 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+
 const main = require("./config/db");
 const userRouter = require("./routes/userroutes");
+const { clerkWebhooks } = require("./controllers/userController");
 
 const app = express();
 
 const PORT = process.env.LISTENING_PORT || 3000;
+
+// ---------------- CORS ----------------
+app.use(cors());
+
+// ---------------- Clerk Webhook ----------------
+// IMPORTANT: raw body is required for Svix signature verification
+app.post(
+  "/user/webhooks",
+  express.raw({ type: "application/json" }),
+  clerkWebhooks
+);
+
+// ---------------- JSON Middleware ----------------
 app.use(express.json());
 
-// app.use(
-//   cors({
-//     origin: "http://localhost:5173",
-//     credentials: true,
-//   })
-// );
-
 // ---------------- Demo Route ----------------
-
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -25,12 +32,10 @@ app.get("/", (req, res) => {
   });
 });
 
-// Routes 
-
+// ---------------- Other User Routes ----------------
 app.use("/user", userRouter);
 
-// MongoDB + Server
-
+// ---------------- MongoDB + Server ----------------
 main()
   .then(() => {
     console.log("MongoDB connected");
