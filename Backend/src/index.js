@@ -4,29 +4,17 @@ require("dotenv").config();
 
 const main = require("./config/db");
 const userRouter = require("./routes/userroutes");
-const { clerkWebhooks } = require("./controllers/userController");
 
 const app = express();
+const PORT = process.env.LISTENING_PORT || 3000;
 
 app.use(cors());
 
-+
-// CLERK WEBHOOK
-// IMPORTANT: RAW BODY MUST COME FIRST
-
-
-app.post(
-  "/user/webhooks",
-  express.raw({ type: "application/json" }),
-  clerkWebhooks
-);
-// NORMAL JSON PARSER
-
+// Normal JSON routes
 app.use(express.json());
 
-// ==========================================
-// DEMO ROUTE
-// ==========================================
+// Normal routes
+app.use("/user", userRouter);
 
 app.get("/", (req, res) => {
   res.json({
@@ -35,27 +23,18 @@ app.get("/", (req, res) => {
   });
 });
 
-// ==========================================
-// USER ROUTES
-// ==========================================
-
-app.use("/user", userRouter);
-
-// ==========================================
-// MONGODB CONNECTION
-// ==========================================
-
 main()
   .then(() => {
     console.log("MongoDB connected");
+
+    // For local development
+    app.listen(PORT, () => {
+      console.log(`BG Remover API listening on port ${PORT}`);
+    });
   })
   .catch((error) => {
     console.log("MongoDB connection error:", error.message);
+    process.exit(1);
   });
 
-// ==========================================
-// EXPORT FOR VERCEL
-// ==========================================
-
 module.exports = app;
-

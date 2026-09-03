@@ -1,7 +1,13 @@
-
 const express = require("express");
+const {
+  clerkWebhooks,
+  userCredits,
+} = require("../controllers/userController");
 
 const userRouter = express.Router();
 
-module.exports = userRouter;
+userRouter.post("/webhooks", clerkWebhooks);
 
+userRouter.post("/credits", userCredits);
+
+module.exports = userRouter;

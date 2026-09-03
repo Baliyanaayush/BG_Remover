@@ -1,4 +1,3 @@
-
 const User = require("../models/user");
 const { verifyWebhook } = require("@clerk/express/webhooks");
 
@@ -8,7 +7,6 @@ const clerkWebhooks = async (req, res) => {
 
     const evt = await verifyWebhook(req);
 
-    console.log("✅ WEBHOOK VERIFIED");
     console.log("EVENT TYPE:", evt.type);
 
     const { data, type } = evt;
@@ -23,11 +21,11 @@ const clerkWebhooks = async (req, res) => {
           photo: data.image_url || "",
         };
 
-        console.log("👤 Creating user:", userData);
+        console.log("Creating user:", userData);
 
-        const user = await User.create(userData);
+        await User.create(userData);
 
-        console.log("✅ User created:", user._id);
+        console.log("✅ User stored in MongoDB");
 
         return res.status(200).json({
           success: true,
@@ -49,8 +47,6 @@ const clerkWebhooks = async (req, res) => {
           { new: true }
         );
 
-        console.log("✅ User updated");
-
         return res.status(200).json({
           success: true,
           message: "User updated successfully",
@@ -62,8 +58,6 @@ const clerkWebhooks = async (req, res) => {
           clerkId: data.id,
         });
 
-        console.log("✅ User deleted");
-
         return res.status(200).json({
           success: true,
           message: "User deleted successfully",
@@ -71,7 +65,7 @@ const clerkWebhooks = async (req, res) => {
       }
 
       default:
-        console.log("ℹ️ Event ignored:", type);
+        console.log("Event ignored:", type);
 
         return res.status(200).json({
           success: true,
@@ -79,7 +73,7 @@ const clerkWebhooks = async (req, res) => {
         });
     }
   } catch (error) {
-    console.error("❌ WEBHOOK ERROR:", error);
+    console.error("❌ Webhook Error:", error);
 
     return res.status(400).json({
       success: false,
@@ -88,21 +82,6 @@ const clerkWebhooks = async (req, res) => {
   }
 };
 
-const userCredits = async (req, res) => {
-  try {
-    const { clerkId } = req.body;
-
-    // We'll implement this later
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 module.exports = {
   clerkWebhooks,
-  userCredits,
 };
-
