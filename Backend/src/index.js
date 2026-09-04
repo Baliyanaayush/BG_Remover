@@ -2,8 +2,8 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { clerkMiddleware } = require("@clerk/express");
-const main = require("./config/db");
 const userRouter = require("./routes/userroutes");
+const dbMiddleware = require("./controllers/dbmiddleware")
 
 const app = express();
 
@@ -14,7 +14,7 @@ app.use(cors({
 
 app.use(express.json());
 
-await main(); // Connect to MongoDB
+app.use(dbMiddleware)// Connect to MongoDB
 
 app.use(clerkMiddleware());
 
