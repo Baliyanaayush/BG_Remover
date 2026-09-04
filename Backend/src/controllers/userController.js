@@ -3,6 +3,21 @@ const { verifyWebhook } = require("@clerk/express/webhooks");
 const { getAuth } = require("@clerk/express");
 const axios = require("axios");
 const FormData = require("form-data");
+const crypto = require("crypto"); const Razorpay = require("razorpay");
+const Payment = require("../models/payment")
+
+const razorpay = new Razorpay({ 
+  key_id: process.env.RAZORPAY_KEY_ID,
+   key_secret: process.env.RAZORPAY_KEY_SECRET, });
+
+   const CREDIT_PLANS = { 
+    basic: { credits: 10, amount: 4900,  //₹49 
+      }, 
+    standard: { credits: 50, amount: 19900,  //₹199 
+      }, 
+    pro: { credits: 120, amount: 39900,  //₹399 
+      }, };
+
 const clerkWebhooks = async (req, res) => {
   try {
     console.log("🔥 WEBHOOK RECEIVED");
@@ -129,11 +144,6 @@ const userCredit = async (req, res) => {
 
 const removeBackground = async (req, res) => {
   try {
-
-
-    // ================================
-    // Clerk authentication
-    // ================================
     const { userId, isAuthenticated } = getAuth(req);
 
     console.log("Authenticated:", isAuthenticated);
@@ -295,14 +305,250 @@ const removeBackground = async (req, res) => {
   }
 };
 
-module.exports = {
-  removeBackground,
+const createOrder = async (req, res) => {
+  try {
+    await main();
+
+    const { userId, isAuthenticated } = getAuth(req);
+
+    if (!isAuthenticated || !userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    const { planId } = req.body;
+
+    const plan = CREDIT_PLANS[planId];
+
+    if (!plan) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid credit plan",
+      });
+    }
+
+    const userData = await User.findOne({
+      clerkId: userId,
+    });
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const receipt = `rcpt_${Date.now()}`;
+
+    const order = await razorpay.orders.create({
+      amount: plan.amount,
+      currency: "INR",
+      receipt,
+      notes: {
+        clerkId: userId,
+        planId,
+      },
+    });
+
+    // Save order before opening checkout
+   await Payment.create({
+  clerkId: userId,
+  razorpayOrderId: order.id,
+  amount: plan.amount,
+  credits: plan.credits,
+  status: "created",
+});
+
+    return res.status(200).json({
+      success: true,
+      order: {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+      },
+      credits: plan.credits,
+      key: process.env.RAZORPAY_KEY_ID,
+    });
+
+  } catch (error) {
+    console.error("Create order error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const verifyPayment = async (req, res) => {
+  try {
+    await main();
+
+    const { userId, isAuthenticated } = getAuth(req);
+
+    if (!isAuthenticated || !userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Incomplete payment details",
+      });
+    }
+
+    // ------------------------------------------
+    // Find our order
+    // ------------------------------------------
+
+    const paymentRecord = await Payment.findOne({
+      razorpayOrderId: razorpay_order_id,
+      clerkId: userId,
+    });
+
+    if (!paymentRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment order not found",
+      });
+    }
+
+    // ------------------------------------------
+    // Prevent duplicate crediting
+    // ------------------------------------------
+
+    if (paymentRecord.status === "paid") {
+      const userData = await User.findOne({
+        clerkId: userId,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment already processed",
+        creditBalance: userData?.creditBalance ?? 0,
+      });
+    }
+
+    // ------------------------------------------
+    // Verify Razorpay signature
+    // ------------------------------------------
+
+    const generatedSignature = crypto
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_KEY_SECRET
+      )
+      .update(
+        `${razorpay_order_id}|${razorpay_payment_id}`
+      )
+      .digest("hex");
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment signature",
+      });
+    }
+
+    // ------------------------------------------
+    // Verify actual payment with Razorpay
+    // ------------------------------------------
+
+    const razorpayPayment =
+      await razorpay.payments.fetch(
+        razorpay_payment_id
+      );
+
+    if (
+      razorpayPayment.order_id !== razorpay_order_id
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment order mismatch",
+      });
+    }
+
+    if (razorpayPayment.status !== "captured") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment is not captured",
+      });
+    }
+
+    // ------------------------------------------
+    // Update payment record
+    // ------------------------------------------
+
+    paymentRecord.razorpayPaymentId =
+      razorpay_payment_id;
+
+    paymentRecord.status = "paid";
+
+    await paymentRecord.save();
+
+    // ------------------------------------------
+    // Add credits
+    // ------------------------------------------
+
+    const userData = await User.findOneAndUpdate(
+      {
+        clerkId: userId,
+      },
+      {
+        $inc: {
+          creditBalance: paymentRecord.credits,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+      creditsAdded: paymentRecord.credits,
+      creditBalance: userData.creditBalance,
+    });
+
+  } catch (error) {
+    console.error("Verify payment error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 
 module.exports = {
   clerkWebhooks,
-  userCredit,removeBackground
+  userCredit,removeBackground,createOrder,
+  verifyPayment,
 };
+
 
 

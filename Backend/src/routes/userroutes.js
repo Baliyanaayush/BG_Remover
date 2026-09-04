@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const {clerkWebhooks,userCredit,removeBackground} = require("../controllers/userController");
+const {clerkWebhooks,userCredit,removeBackground,createOrder, verifyPayment} = require("../controllers/userController");
 
 const userRouter = express.Router();
 const storage = multer.memoryStorage();
@@ -35,6 +35,8 @@ const upload = multer({
 userRouter.post("/webhooks", clerkWebhooks);
 userRouter.get("/credits",userCredit)
 userRouter.post( "/remove-bg", upload.single("image"), removeBackground );
+userRouter.post("/create-order", createOrder); 
+userRouter.post("/verify-payment", verifyPayment);
 
 // userRouter.post("/credits", userCredits);
 
