@@ -5,11 +5,15 @@ import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import "./index.css";
 import { ClerkProvider } from '@clerk/react'
+import {Provider} from "react-redux"
+import store from "./store/store.js"
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>
   <ClerkProvider>
+    <Provider store={store}>
     <App />
+    </Provider>
     </ClerkProvider>
  </BrowserRouter>
 )
