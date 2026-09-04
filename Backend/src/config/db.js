@@ -1,22 +1,38 @@
 const mongoose = require("mongoose");
 
-let isConnected = false;
+let cachedConnection = null;
+let cachedPromise = null;
 
 const main = async () => {
-  try {
-    if (isConnected && mongoose.connection.readyState === 1) {
-      return;
-    }
-    await mongoose.connect(process.env.CONNECTING_STRING);
-
-    isConnected = true;
-
-    console.log("MongoDB connect");
-  } catch (error) {
-    isConnected = false;
-    console.error(" MongoDB connection failed:", error.message);
-    throw error;
+  // Already connected
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
   }
+
+  // Connection is already being established
+  if (!cachedPromise) {
+    cachedPromise = mongoose
+      .connect(process.env.CONNECTING_STRING)
+      .then((mongooseInstance) => {
+        console.log("✅ MongoDB connected");
+        cachedConnection = mongooseInstance.connection;
+        return cachedConnection;
+      })
+      .catch((error) => {
+        cachedPromise = null;
+        cachedConnection = null;
+
+        console.error(
+          "❌ MongoDB connection failed:",
+          error.message
+        );
+
+        throw error;
+      });
+  }
+
+  return cachedPromise;
 };
 
 module.exports = main;
+

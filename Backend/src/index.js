@@ -25,12 +25,5 @@ app.get("/", (req, res) => {
   });
 });
 
- main()
-  .then(() => {
-    console.log("Ready")
-  })
-  .catch((error) => {
-    console.log("MongoDB connection error:", error.message);
-  });
 
 module.exports = app;
