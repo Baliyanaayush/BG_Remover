@@ -126,13 +126,12 @@ const userCredit = async (req, res) => {
   }
 };
 
+
 const removeBackground = async (req, res) => {
   try {
+
+
     // ================================
-    // Connect MongoDB
-    // ================================
-   
- // ================================
     // Clerk authentication
     // ================================
     const { userId, isAuthenticated } = getAuth(req);
@@ -176,7 +175,7 @@ const removeBackground = async (req, res) => {
     }
 
     // ================================
-    // Check credits
+    // Check your app credits
     // ================================
     if (userData.creditBalance <= 0) {
       return res.status(402).json({
@@ -190,14 +189,10 @@ const removeBackground = async (req, res) => {
     // ================================
     const formData = new FormData();
 
-    formData.append(
-      "image_file",
-      req.file.buffer,
-      {
-        filename: req.file.originalname,
-        contentType: req.file.mimetype,
-      }
-    );
+    formData.append("image_file", req.file.buffer, {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
 
     formData.append("size", "auto");
 
@@ -215,18 +210,54 @@ const removeBackground = async (req, res) => {
           "X-Api-Key": process.env.REMOVE_BG_API_KEY,
         },
 
+        // Don't force arraybuffer for errors.
+        // Let Axios receive normal error data.
         responseType: "arraybuffer",
+
+        validateStatus: () => true,
 
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       }
     );
 
-    console.log("✅ Background removed successfully");
+    console.log("remove.bg status:", response.status);
 
     // ================================
-    // Deduct one credit
+    // Handle remove.bg error
     // ================================
+    if (response.status !== 200) {
+      let errorData;
+
+      try {
+        const text = Buffer.from(response.data).toString("utf8");
+        errorData = JSON.parse(text);
+      } catch {
+        errorData = {
+          message: Buffer.from(response.data).toString("utf8"),
+        };
+      }
+
+      console.error(
+        "❌ remove.bg API ERROR:",
+        JSON.stringify(errorData, null, 2)
+      );
+
+      return res.status(response.status).json({
+        success: false,
+        message:
+          errorData?.errors?.[0]?.title ||
+          errorData?.message ||
+          "remove.bg failed to process the image",
+      });
+    }
+
+    // ================================
+    // Success
+    // ================================
+    console.log("✅ Background removed successfully");
+
+    // Deduct one of YOUR app credits
     userData.creditBalance -= 1;
 
     await userData.save();
@@ -244,29 +275,30 @@ const removeBackground = async (req, res) => {
     return res.send(response.data);
 
   } catch (error) {
-    let errorMessage = error.message;
+    console.error("❌ Remove Background Error:");
 
     if (error.response?.data) {
       try {
-        errorMessage = Buffer.from(
-          error.response.data
-        ).toString("utf8");
+        const text = Buffer.from(error.response.data).toString("utf8");
+        console.error(text);
       } catch {
-        errorMessage = error.message;
+        console.error(error.response.data);
       }
+    } else {
+      console.error(error.message);
     }
-
-    console.error(
-      "❌ Remove Background Error:",
-      errorMessage
-    );
 
     return res.status(500).json({
       success: false,
-      message: "Failed to remove background",
+      message: "Background removal failed",
     });
   }
 };
+
+module.exports = {
+  removeBackground,
+};
+
 
 module.exports = {
   clerkWebhooks,
