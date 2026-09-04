@@ -85,6 +85,7 @@ const clerkWebhooks = async (req, res) => {
   }
 };
 
+
 const userCredit = async (req, res) => {
   try {
     // Make sure MongoDB is connected
@@ -116,7 +117,7 @@ const userCredit = async (req, res) => {
       creditBalance: userData.creditBalance,
     });
   } catch (error) {
-    console.error("❌ CREDIT ERROR:", error);
+    console.error(" CREDIT ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -125,10 +126,142 @@ const userCredit = async (req, res) => {
   }
 };
 
+const removeBackground = async (req, res) => {
+  try {
+   
+    // Check Clerk authentication
+    // -----------------------------
+    const { isAuthenticated, userId } = getAuth(req);
 
+    if (!isAuthenticated || !userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    // -----------------------------
+    // Check image
+    // -----------------------------
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select an image",
+      });
+    }
+
+    // -----------------------------
+    // Find user
+    // -----------------------------
+    const userData = await User.findOne({
+      clerkId: userId,
+    });
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // -----------------------------
+    // Check credits
+    // -----------------------------
+    if (userData.creditBalance <= 0) {
+      return res.status(402).json({
+        success: false,
+        message: "No credits remaining",
+      });
+    }
+
+    console.log("🖼️ Image:", req.file.originalname);
+    console.log("📦 Size:", req.file.size);
+    console.log("👤 User:", userId);
+
+    // -----------------------------
+    // Create multipart form
+    // for remove.bg
+    // -----------------------------
+    const formData = new FormData();
+
+    formData.append(
+      "image_file",
+      req.file.buffer,
+      {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      }
+    );
+
+    formData.append("size", "auto");
+
+    // -----------------------------
+    // Send image to remove.bg
+    // -----------------------------
+    const response = await axios.post(
+      "https://api.remove.bg/v1.0/removebg",
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          "X-Api-Key": process.env.REMOVE_BG_API_KEY,
+        },
+
+        responseType: "arraybuffer",
+
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    console.log("✅ Background removed");
+
+    // -----------------------------
+    // Deduct ONE credit
+    // -----------------------------
+    userData.creditBalance -= 1;
+
+    await userData.save();
+
+    console.log(
+      "💳 Remaining credits:",
+      userData.creditBalance
+    );
+
+    // -----------------------------
+    // Send PNG back to frontend
+    // -----------------------------
+    res.setHeader("Content-Type", "image/png");
+
+    return res.send(response.data);
+
+  } catch (error) {
+    console.error(
+      "❌ Remove Background Error:",
+      error.response?.data
+        ? Buffer.from(error.response.data).toString()
+        : error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to remove background",
+    });
+  }
+};
 
 module.exports = {
   clerkWebhooks,
-  userCredit,
+  userCredit,removeBackground
 };
+
+
+
+
+
+
+
+module.exports = {
+  removeBackground,
+}
 
