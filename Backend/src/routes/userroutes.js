@@ -1,7 +1,5 @@
 const express = require("express");
 const {clerkWebhooks,userCredit} = require("../controllers/userController");
-const UserMiddleware = require("../middlewares/usermiddleware");
-
 
 const userRouter = express.Router();
 

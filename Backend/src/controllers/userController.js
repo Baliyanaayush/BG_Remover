@@ -1,5 +1,7 @@
+
 const User = require("../models/user");
 const { verifyWebhook } = require("@clerk/express/webhooks");
+const { getAuth } = require("@clerk/express");
 
 const clerkWebhooks = async (req, res) => {
   try {
@@ -36,7 +38,7 @@ const clerkWebhooks = async (req, res) => {
       case "user.updated": {
         const userData = {
           emailId: data.email_addresses?.[0]?.email_address || "",
-          firstname: data.first_name || "",
+          firstname: data.first_name || "User",
           lastname: data.last_name || "",
           photo: data.image_url || "",
         };
@@ -82,17 +84,17 @@ const clerkWebhooks = async (req, res) => {
   }
 };
 
-
 const userCredit = async (req, res) => {
   try {
-    const { userId } = req.auth();
+    const { userId, isAuthenticated } = getAuth(req);
 
-    console.log("Clerk User ID:", userId);
+    console.log("🔥 Authenticated:", isAuthenticated);
+    console.log("🔥 Clerk User ID:", userId);
 
-    if (!userId) {
+    if (!isAuthenticated || !userId) {
       return res.status(401).json({
         success: false,
-        message: "Not authenticated",
+        message: "User not authenticated",
       });
     }
 
@@ -100,10 +102,12 @@ const userCredit = async (req, res) => {
       clerkId: userId,
     });
 
+    console.log("🔥 MongoDB User:", userData);
+
     if (!userData) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found in database",
       });
     }
 
@@ -113,7 +117,7 @@ const userCredit = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Credit Error:", error);
+    console.error("🔥 CREDIT ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -123,6 +127,7 @@ const userCredit = async (req, res) => {
 };
 
 module.exports = {
-  clerkWebhooks,userCredit
-
+  clerkWebhooks,
+  userCredit,
 };
+
