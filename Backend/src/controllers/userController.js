@@ -307,7 +307,7 @@ const removeBackground = async (req, res) => {
 
 const createOrder = async (req, res) => {
   try {
-    await main();
+    
 
     const { userId, isAuthenticated } = getAuth(req);
 
@@ -384,7 +384,7 @@ const createOrder = async (req, res) => {
 
 const verifyPayment = async (req, res) => {
   try {
-    await main();
+    
 
     const { userId, isAuthenticated } = getAuth(req);
 
