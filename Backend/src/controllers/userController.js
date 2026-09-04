@@ -1,8 +1,8 @@
 const User = require("../models/user");
 const { verifyWebhook } = require("@clerk/express/webhooks");
 const { getAuth } = require("@clerk/express");
-const main = require("../config/db")
-
+const axios = require("axios");
+const FormData = require("form-data");
 const clerkWebhooks = async (req, res) => {
   try {
     console.log("🔥 WEBHOOK RECEIVED");
@@ -128,10 +128,17 @@ const userCredit = async (req, res) => {
 
 const removeBackground = async (req, res) => {
   try {
+    // ================================
+    // Connect MongoDB
+    // ================================
    
-    // Check Clerk authentication
-    // -----------------------------
-    const { isAuthenticated, userId } = getAuth(req);
+ // ================================
+    // Clerk authentication
+    // ================================
+    const { userId, isAuthenticated } = getAuth(req);
+
+    console.log("Authenticated:", isAuthenticated);
+    console.log("User ID:", userId);
 
     if (!isAuthenticated || !userId) {
       return res.status(401).json({
@@ -140,19 +147,23 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    // -----------------------------
-    // Check image
-    // -----------------------------
+    // ================================
+    // Check uploaded image
+    // ================================
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "Please select an image",
+        message: "Please upload an image",
       });
     }
 
-    // -----------------------------
+    console.log("🖼️ Image:", req.file.originalname);
+    console.log("📦 Size:", req.file.size);
+    console.log("👤 User:", userId);
+
+    // ================================
     // Find user
-    // -----------------------------
+    // ================================
     const userData = await User.findOne({
       clerkId: userId,
     });
@@ -164,9 +175,9 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    // -----------------------------
+    // ================================
     // Check credits
-    // -----------------------------
+    // ================================
     if (userData.creditBalance <= 0) {
       return res.status(402).json({
         success: false,
@@ -174,14 +185,9 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    console.log("🖼️ Image:", req.file.originalname);
-    console.log("📦 Size:", req.file.size);
-    console.log("👤 User:", userId);
-
-    // -----------------------------
+    // ================================
     // Create multipart form
-    // for remove.bg
-    // -----------------------------
+    // ================================
     const formData = new FormData();
 
     formData.append(
@@ -195,9 +201,11 @@ const removeBackground = async (req, res) => {
 
     formData.append("size", "auto");
 
-    // -----------------------------
-    // Send image to remove.bg
-    // -----------------------------
+    console.log("🚀 Sending image to remove.bg...");
+
+    // ================================
+    // Call remove.bg
+    // ================================
     const response = await axios.post(
       "https://api.remove.bg/v1.0/removebg",
       formData,
@@ -214,11 +222,11 @@ const removeBackground = async (req, res) => {
       }
     );
 
-    console.log("✅ Background removed");
+    console.log("✅ Background removed successfully");
 
-    // -----------------------------
-    // Deduct ONE credit
-    // -----------------------------
+    // ================================
+    // Deduct one credit
+    // ================================
     userData.creditBalance -= 1;
 
     await userData.save();
@@ -228,19 +236,29 @@ const removeBackground = async (req, res) => {
       userData.creditBalance
     );
 
-    // -----------------------------
-    // Send PNG back to frontend
-    // -----------------------------
+    // ================================
+    // Return PNG
+    // ================================
     res.setHeader("Content-Type", "image/png");
 
     return res.send(response.data);
 
   } catch (error) {
+    let errorMessage = error.message;
+
+    if (error.response?.data) {
+      try {
+        errorMessage = Buffer.from(
+          error.response.data
+        ).toString("utf8");
+      } catch {
+        errorMessage = error.message;
+      }
+    }
+
     console.error(
       "❌ Remove Background Error:",
-      error.response?.data
-        ? Buffer.from(error.response.data).toString()
-        : error.message
+      errorMessage
     );
 
     return res.status(500).json({
