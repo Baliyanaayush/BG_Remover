@@ -1,4 +1,3 @@
-
 const User = require("../models/user");
 const { verifyWebhook } = require("@clerk/express/webhooks");
 const { getAuth } = require("@clerk/express");
@@ -87,10 +86,12 @@ const clerkWebhooks = async (req, res) => {
 
 const userCredit = async (req, res) => {
   try {
+    // Make sure MongoDB is connected
+
     const { userId, isAuthenticated } = getAuth(req);
 
-    console.log("🔥 Authenticated:", isAuthenticated);
-    console.log("🔥 Clerk User ID:", userId);
+    console.log("Authenticated:", isAuthenticated);
+    console.log("Clerk User ID:", userId);
 
     if (!isAuthenticated || !userId) {
       return res.status(401).json({
@@ -103,12 +104,10 @@ const userCredit = async (req, res) => {
       clerkId: userId,
     });
 
-    console.log("🔥 MongoDB User:", userData);
-
     if (!userData) {
       return res.status(404).json({
         success: false,
-        message: "User not found in database",
+        message: "User not found",
       });
     }
 
@@ -116,9 +115,8 @@ const userCredit = async (req, res) => {
       success: true,
       creditBalance: userData.creditBalance,
     });
-
   } catch (error) {
-    console.error("🔥 CREDIT ERROR:", error);
+    console.error("❌ CREDIT ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -126,6 +124,8 @@ const userCredit = async (req, res) => {
     });
   }
 };
+
+
 
 module.exports = {
   clerkWebhooks,

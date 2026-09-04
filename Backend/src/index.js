@@ -25,9 +25,9 @@ app.get("/", (req, res) => {
   });
 });
 
-main()
+ main()
   .then(() => {
-    console.log("MongoDB connected");
+    console.log("Ready")
   })
   .catch((error) => {
     console.log("MongoDB connection error:", error.message);
