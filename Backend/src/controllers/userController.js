@@ -88,7 +88,6 @@ const clerkWebhooks = async (req, res) => {
 const userCredit = async (req, res) => {
   try {
     // Make sure MongoDB is connected
- await main()
     const { userId, isAuthenticated } = getAuth(req);
 
     console.log("Authenticated:", isAuthenticated);

@@ -14,6 +14,8 @@ app.use(cors({
 
 app.use(express.json());
 
+await main(); // Connect to MongoDB
+
 app.use(clerkMiddleware());
 
 app.use("/user", userRouter);
