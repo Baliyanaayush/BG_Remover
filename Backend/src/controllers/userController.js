@@ -6,6 +6,7 @@ const { getAuth } = require("@clerk/express");
 const clerkWebhooks = async (req, res) => {
   try {
     console.log("🔥 WEBHOOK RECEIVED");
+    console.log("Authorization exists:", !!req.headers.authorization);
 
     const evt = await verifyWebhook(req);
 
