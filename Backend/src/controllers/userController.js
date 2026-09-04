@@ -256,12 +256,3 @@ module.exports = {
 };
 
 
-
-
-
-
-
-module.exports = {
-  removeBackground,
-}
-
