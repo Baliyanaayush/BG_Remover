@@ -6,7 +6,7 @@ const UserMiddleware = require("../middlewares/usermiddleware");
 const userRouter = express.Router();
 
 userRouter.post("/webhooks", clerkWebhooks);
-userRouter.get("/credits",UserMiddleware,userCredit)
+userRouter.get("/credits",userCredit)
 
 // userRouter.post("/credits", userCredits);
 

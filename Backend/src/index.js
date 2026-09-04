@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-
+const { clerkMiddleware } = require("@clerk/express");
 const main = require("./config/db");
 const userRouter = require("./routes/userroutes");
 
@@ -13,6 +13,8 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use(clerkMiddleware());
 
 app.use("/user", userRouter);
 

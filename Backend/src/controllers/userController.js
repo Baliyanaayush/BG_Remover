@@ -85,11 +85,20 @@ const clerkWebhooks = async (req, res) => {
 
 const userCredit = async (req, res) => {
   try {
-    const { clerkId } = req.body;
+    const { userId } = req.auth();
 
-    console.log("Clerk ID:", clerkId);
+    console.log("Clerk User ID:", userId);
 
-    const userData = await User.findOne({ clerkId });
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const userData = await User.findOne({
+      clerkId: userId,
+    });
 
     if (!userData) {
       return res.status(404).json({
@@ -98,12 +107,14 @@ const userCredit = async (req, res) => {
       });
     }
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       creditBalance: userData.creditBalance,
     });
 
   } catch (error) {
+    console.error("Credit Error:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
