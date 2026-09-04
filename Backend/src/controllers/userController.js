@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const { verifyWebhook } = require("@clerk/express/webhooks");
 const { getAuth } = require("@clerk/express");
+const main = require("../config/db")
 
 const clerkWebhooks = async (req, res) => {
   try {
