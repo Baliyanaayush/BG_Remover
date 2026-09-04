@@ -16,7 +16,7 @@ const clerkWebhooks = async (req, res) => {
         const userData = {
           clerkId: data.id,
           emailId: data.email_addresses?.[0]?.email_address || "",
-          ffirstname: data.first_name || "User",
+          firstname: data.first_name || "User",
           lastname: data.last_name || "",
           photo: data.image_url || "",
         };
@@ -25,7 +25,7 @@ const clerkWebhooks = async (req, res) => {
 
         await User.create(userData);
 
-        console.log("✅ User stored in MongoDB");
+        console.log("User stored in MongoDB");
 
         return res.status(200).json({
           success: true,
@@ -73,7 +73,7 @@ const clerkWebhooks = async (req, res) => {
         });
     }
   } catch (error) {
-    console.error("❌ Webhook Error:", error);
+    console.error("Webhook Error:", error);
 
     return res.status(400).json({
       success: false,
@@ -82,6 +82,36 @@ const clerkWebhooks = async (req, res) => {
   }
 };
 
+
+const userCredit = async (req, res) => {
+  try {
+    const { clerkId } = req.body;
+
+    console.log("Clerk ID:", clerkId);
+
+    const userData = await User.findOne({ clerkId });
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      creditBalance: userData.creditBalance,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
-  clerkWebhooks,
+  clerkWebhooks,userCredit
+
 };
