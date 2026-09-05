@@ -20,12 +20,10 @@ const razorpay = new Razorpay({
 
 const clerkWebhooks = async (req, res) => {
   try {
-    console.log("🔥 WEBHOOK RECEIVED");
-    console.log("Authorization exists:", !!req.headers.authorization);
+    
 
     const evt = await verifyWebhook(req);
 
-    console.log("EVENT TYPE:", evt.type);
 
     const { data, type } = evt;
 
@@ -103,7 +101,7 @@ const clerkWebhooks = async (req, res) => {
 
 const userCredit = async (req, res) => {
   try {
-    // Make sure MongoDB is connected
+    
     const { userId, isAuthenticated } = getAuth(req);
 
     console.log("Authenticated:", isAuthenticated);
@@ -156,9 +154,9 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    // ================================
+    
     // Check uploaded image
-    // ================================
+    
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -170,9 +168,9 @@ const removeBackground = async (req, res) => {
     console.log("📦 Size:", req.file.size);
     console.log("👤 User:", userId);
 
-    // ================================
+    
     // Find user
-    // ================================
+    
     const userData = await User.findOne({
       clerkId: userId,
     });
@@ -184,9 +182,9 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    // ================================
+    
     // Check your app credits
-    // ================================
+    
     if (userData.creditBalance <= 0) {
       return res.status(402).json({
         success: false,
@@ -194,9 +192,9 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    // ================================
+    
     // Create multipart form
-    // ================================
+    
     const formData = new FormData();
 
     formData.append("image_file", req.file.buffer, {
@@ -208,9 +206,9 @@ const removeBackground = async (req, res) => {
 
     console.log("🚀 Sending image to remove.bg...");
 
-    // ================================
+    
     // Call remove.bg
-    // ================================
+    
     const response = await axios.post(
       "https://api.remove.bg/v1.0/removebg",
       formData,
@@ -220,8 +218,7 @@ const removeBackground = async (req, res) => {
           "X-Api-Key": process.env.REMOVE_BG_API_KEY,
         },
 
-        // Don't force arraybuffer for errors.
-        // Let Axios receive normal error data.
+        
         responseType: "arraybuffer",
 
         validateStatus: () => true,
@@ -233,9 +230,9 @@ const removeBackground = async (req, res) => {
 
     console.log("remove.bg status:", response.status);
 
-    // ================================
+    
     // Handle remove.bg error
-    // ================================
+    
     if (response.status !== 200) {
       let errorData;
 
@@ -249,7 +246,7 @@ const removeBackground = async (req, res) => {
       }
 
       console.error(
-        "❌ remove.bg API ERROR:",
+        " remove.bg API ERROR:",
         JSON.stringify(errorData, null, 2)
       );
 
@@ -262,9 +259,9 @@ const removeBackground = async (req, res) => {
       });
     }
 
-    // ================================
+    
     // Success
-    // ================================
+    
     console.log("✅ Background removed successfully");
 
     // Deduct one of YOUR app credits
@@ -277,15 +274,15 @@ const removeBackground = async (req, res) => {
       userData.creditBalance
     );
 
-    // ================================
+    
     // Return PNG
-    // ================================
+    
     res.setHeader("Content-Type", "image/png");
 
     return res.send(response.data);
 
   } catch (error) {
-    console.error("❌ Remove Background Error:");
+    
 
     if (error.response?.data) {
       try {
@@ -412,9 +409,9 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
+   
     // Find our order
-    // ------------------------------------------
+    
 
     const paymentRecord = await Payment.findOne({
       razorpayOrderId: razorpay_order_id,
@@ -428,9 +425,9 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
+    
     // Prevent duplicate crediting
-    // ------------------------------------------
+   
 
     if (paymentRecord.status === "paid") {
       const userData = await User.findOne({
@@ -444,9 +441,8 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
     // Verify Razorpay signature
-    // ------------------------------------------
+    
 
     const generatedSignature = crypto
       .createHmac(
@@ -465,9 +461,9 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
+    
     // Verify actual payment with Razorpay
-    // ------------------------------------------
+    
 
     const razorpayPayment =
       await razorpay.payments.fetch(
@@ -490,9 +486,9 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // ------------------------------------------
+    
     // Update payment record
-    // ------------------------------------------
+    
 
     paymentRecord.razorpayPaymentId =
       razorpay_payment_id;
@@ -501,9 +497,9 @@ const verifyPayment = async (req, res) => {
 
     await paymentRecord.save();
 
-    // ------------------------------------------
+    
     // Add credits
-    // ------------------------------------------
+    
 
     const userData = await User.findOneAndUpdate(
       {

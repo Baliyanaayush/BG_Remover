@@ -14,7 +14,7 @@ app.use(cors({
 
 app.use(express.json());
 
-app.use(dbMiddleware)// Connect to MongoDB
+app.use(dbMiddleware)
 
 app.use(clerkMiddleware());
 
