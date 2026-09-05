@@ -21,17 +21,17 @@ const Header = () => {
 
     if (!file) return;
 
-    // ================================
+    
     // Check login
-    // ================================
+    
     if (!isSignedIn) {
       alert("Please login first.");
       return;
     }
 
-    // ================================
+    
     // Check file type
-    // ================================
+    
     const allowedTypes = [
       "image/jpeg",
       "image/png",
@@ -48,9 +48,9 @@ const Header = () => {
       return;
     }
 
-    // ================================
+    
     // Check file size
-    // ================================
+    
     if (file.size > 5 * 1024 * 1024) {
       alert("Image size must be less than 5MB.");
 
@@ -61,24 +61,21 @@ const Header = () => {
     try {
       setLoading(true);
 
-      // ================================
+      
       // Remove background using Redux
-      // ================================
+      
       const imageUrl = await dispatch(
         removeBackground({
           file,
           getToken,
         })
       ).unwrap();
-
-      // ================================
-      // Refresh user's credits
-      // ================================
+      // Refresh user's credits 
       dispatch(getCredit(getToken));
 
-      // ================================
+      
       // Navigate to result page
-      // ================================
+      
       navigate("/result", {
         state: {
           imageUrl,
@@ -107,10 +104,9 @@ const Header = () => {
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 md:py-24 flex flex-col md:flex-row items-center justify-between gap-12">
 
-      {/* ================================
-          Left Side
-      ================================= */}
-
+     
+         {/* Left Side */}
+     
       <div className="w-full md:w-1/2">
 
         {/* Heading */}
@@ -135,10 +131,7 @@ const Header = () => {
           Fast, simple and completely free.
         </p>
 
-        {/* ================================
-            Upload Section
-        ================================= */}
-
+        {/* Upload Button */}
         <div className="mt-8">
 
           <input
@@ -217,9 +210,9 @@ const Header = () => {
       </div>
 
 
-      {/* ================================
-          Right Side
-      ================================= */}
+      
+          {/* Right Side */}
+      
 
       <div className="w-full md:w-1/2 flex justify-center">
 

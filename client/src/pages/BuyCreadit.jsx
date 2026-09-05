@@ -62,9 +62,9 @@ const BuyCredits = () => {
 
       setLoadingPlan(plan.id);
 
-      // --------------------------------------
+      
       // Load Razorpay Checkout
-      // --------------------------------------
+      
 
       const loaded = await loadRazorpay();
 
@@ -73,15 +73,15 @@ const BuyCredits = () => {
         return;
       }
 
-      // --------------------------------------
+      
       // Clerk token
-      // --------------------------------------
+      
 
       const token = await getToken();
 
-      // --------------------------------------
+      
       // Create order on backend
-      // --------------------------------------
+      
 
       const { data } = await axiosClient.post(
         "/user/create-order",
@@ -101,9 +101,9 @@ const BuyCredits = () => {
         );
       }
 
-      // --------------------------------------
+      
       // Razorpay Checkout
-      // --------------------------------------
+      
 
       const options = {
         key: data.key,
@@ -129,9 +129,9 @@ const BuyCredits = () => {
 
         handler: async function (response) {
           try {
-            // --------------------------------
+            
             // Verify payment on backend
-            // --------------------------------
+            
 
             const verifyResponse =
               await axiosClient.post(
