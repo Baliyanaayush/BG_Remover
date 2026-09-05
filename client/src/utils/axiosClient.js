@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosClient = axios.create({
-  baseURL: "https://bg-remover-nine-nu.vercel.app",
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
 });
 
