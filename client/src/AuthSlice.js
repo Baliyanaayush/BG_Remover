@@ -1,4 +1,3 @@
-
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosClient from "./utils/axiosClient";
 
@@ -8,6 +7,7 @@ import axiosClient from "./utils/axiosClient";
 
 export const getCredit = createAsyncThunk(
   "/user/credits",
+
   async (getToken, { rejectWithValue }) => {
     try {
       const token = await getToken();
@@ -61,48 +61,146 @@ export const removeBackground = createAsyncThunk(
         }
       );
 
-      // Create browser URL from successful image Blob
+      // Convert Blob to object URL
       const imageUrl = URL.createObjectURL(response.data);
 
-      // Return only serializable string
+      // Return serializable string
       return imageUrl;
 
     } catch (error) {
-      let errorMessage = "Failed to remove background";
+      let message = "Failed to remove background";
 
-      // Because responseType is "blob", backend errors
-      // also arrive as Blob
+      // Because responseType is blob,
+      // backend errors may also be Blob
       if (error.response?.data instanceof Blob) {
         try {
           const text = await error.response.data.text();
 
           try {
             const parsed = JSON.parse(text);
-
-            errorMessage =
-              parsed.message || errorMessage;
+            message = parsed.message || message;
           } catch {
-            errorMessage = text || errorMessage;
+            message = text || message;
           }
         } catch {
-          errorMessage = "Server error";
+          message = "Server error";
         }
       } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (typeof error.response?.data === "string") {
-        errorMessage = error.response.data;
+        message = error.response.data.message;
       } else if (error.message) {
-        errorMessage = error.message;
+        message = error.message;
       }
 
-      console.error(
-        "REMOVE BACKGROUND ERROR:",
-        errorMessage
-      );
+      console.error("REMOVE BACKGROUND ERROR:", message);
 
       return rejectWithValue({
-        message: errorMessage,
+        message,
       });
+    }
+  }
+);
+
+
+// ==========================================
+// CREATE RAZORPAY ORDER
+// ==========================================
+
+export const createOrder = createAsyncThunk(
+  "/user/create-order",
+
+  async ({ planId, getToken }, { rejectWithValue }) => {
+    try {
+      const token = await getToken();
+
+      const { data } = await axiosClient.post(
+        "/user/create-order",
+        {
+          planId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!data.success) {
+        return rejectWithValue({
+          message: data.message || "Unable to create order",
+        });
+      }
+
+      return data;
+
+    } catch (error) {
+      console.error(
+        "CREATE ORDER ERROR:",
+        error.response?.data || error.message
+      );
+
+      return rejectWithValue(
+        error.response?.data || {
+          message: error.message,
+        }
+      );
+    }
+  }
+);
+
+
+// ==========================================
+// VERIFY RAZORPAY PAYMENT
+// ==========================================
+
+export const verifyPayment = createAsyncThunk(
+  "/user/verify-payment",
+
+  async (
+    {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      getToken,
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const token = await getToken();
+
+      const { data } = await axiosClient.post(
+        "/user/verify-payment",
+        {
+          razorpay_order_id,
+          razorpay_payment_id,
+          razorpay_signature,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!data.success) {
+        return rejectWithValue({
+          message:
+            data.message || "Payment verification failed",
+        });
+      }
+
+      return data;
+
+    } catch (error) {
+      console.error(
+        "VERIFY PAYMENT ERROR:",
+        error.response?.data || error.message
+      );
+
+      return rejectWithValue(
+        error.response?.data || {
+          message: error.message,
+        }
+      );
     }
   }
 );
@@ -116,22 +214,41 @@ const creditSlice = createSlice({
   name: "credit",
 
   initialState: {
+    // -------------------------------
+    // Credits
+    // -------------------------------
     creditBalance: 0,
-
     loading: false,
     error: null,
 
+    // -------------------------------
+    // Background removal
+    // -------------------------------
     removeBgLoading: false,
     removeBgError: null,
-
-    // URL string, not Blob
     resultImage: null,
+
+    // -------------------------------
+    // Payment
+    // -------------------------------
+    paymentLoading: false,
+    paymentError: null,
+    paymentSuccess: false,
+
+    lastPayment: null,
   },
 
   reducers: {
     clearResult: (state) => {
       state.resultImage = null;
       state.removeBgError = null;
+    },
+
+    clearPaymentState: (state) => {
+      state.paymentLoading = false;
+      state.paymentError = null;
+      state.paymentSuccess = false;
+      state.lastPayment = null;
     },
   },
 
@@ -149,7 +266,9 @@ const creditSlice = createSlice({
 
       .addCase(getCredit.fulfilled, (state, action) => {
         state.loading = false;
-        state.creditBalance = action.payload.creditBalance;
+
+        state.creditBalance =
+          action.payload.creditBalance;
       })
 
       .addCase(getCredit.rejected, (state, action) => {
@@ -171,17 +290,78 @@ const creditSlice = createSlice({
       .addCase(removeBackground.fulfilled, (state, action) => {
         state.removeBgLoading = false;
 
-        // This is a string, so Redux is happy
+        // String URL — safe for Redux
         state.resultImage = action.payload;
       })
 
       .addCase(removeBackground.rejected, (state, action) => {
         state.removeBgLoading = false;
         state.removeBgError = action.payload;
+      })
+
+
+      // =====================================
+      // CREATE ORDER
+      // =====================================
+
+      .addCase(createOrder.pending, (state) => {
+        state.paymentLoading = true;
+        state.paymentError = null;
+        state.paymentSuccess = false;
+      })
+
+      .addCase(createOrder.fulfilled, (state) => {
+        // Razorpay checkout opens after this,
+        // so keep loading state available.
+        state.paymentLoading = false;
+      })
+
+      .addCase(createOrder.rejected, (state, action) => {
+        state.paymentLoading = false;
+        state.paymentError = action.payload;
+      })
+
+
+      // =====================================
+      // VERIFY PAYMENT
+      // =====================================
+
+      .addCase(verifyPayment.pending, (state) => {
+        state.paymentLoading = true;
+        state.paymentError = null;
+        state.paymentSuccess = false;
+      })
+
+      .addCase(verifyPayment.fulfilled, (state, action) => {
+        state.paymentLoading = false;
+        state.paymentSuccess = true;
+
+        state.lastPayment = {
+          creditsAdded: action.payload.creditsAdded,
+          creditBalance: action.payload.creditBalance,
+        };
+
+        // Immediately reflect returned balance
+        if (
+          typeof action.payload.creditBalance ===
+          "number"
+        ) {
+          state.creditBalance =
+            action.payload.creditBalance;
+        }
+      })
+
+      .addCase(verifyPayment.rejected, (state, action) => {
+        state.paymentLoading = false;
+        state.paymentError = action.payload;
       });
   },
 });
 
-export const { clearResult } = creditSlice.actions;
+export const {
+  clearResult,
+  clearPaymentState,
+} = creditSlice.actions;
 
 export default creditSlice.reducer;
+

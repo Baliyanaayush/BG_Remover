@@ -1,129 +1,331 @@
+import React, { useState } from "react";
+import { useAuth, useUser } from "@clerk/react";
+import { useDispatch } from "react-redux";
+import { getCredit } from "../AuthSlice";
+import axiosClient from "../utils/axiosClient";
 
-import React from "react";
-import { assets, plans } from "../assets/assets";
+const plans = [
+  {
+    id: "basic",
+    name: "Basic",
+    credits: 10,
+    price: 49,
+  },
+  {
+    id: "standard",
+    name: "Standard",
+    credits: 50,
+    price: 199,
+    popular: true,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    credits: 120,
+    price: 399,
+  },
+];
 
-const BuyCreadit = () => {
+const loadRazorpay = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+
+    script.src =
+      "https://checkout.razorpay.com/v1/checkout.js";
+
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+
+    document.body.appendChild(script);
+  });
+};
+
+const BuyCredits = () => {
+  const { getToken, isSignedIn } = useAuth();
+  const { user } = useUser();
+
+  const dispatch = useDispatch();
+
+  const [loadingPlan, setLoadingPlan] = useState(null);
+
+  const handlePurchase = async (plan) => {
+    try {
+      if (!isSignedIn) {
+        alert("Please login first.");
+        return;
+      }
+
+      setLoadingPlan(plan.id);
+
+      // --------------------------------------
+      // Load Razorpay Checkout
+      // --------------------------------------
+
+      const loaded = await loadRazorpay();
+
+      if (!loaded) {
+        alert("Razorpay failed to load.");
+        return;
+      }
+
+      // --------------------------------------
+      // Clerk token
+      // --------------------------------------
+
+      const token = await getToken();
+
+      // --------------------------------------
+      // Create order on backend
+      // --------------------------------------
+
+      const { data } = await axiosClient.post(
+        "/user/create-order",
+        {
+          planId: plan.id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!data.success) {
+        throw new Error(
+          data.message || "Unable to create order"
+        );
+      }
+
+      // --------------------------------------
+      // Razorpay Checkout
+      // --------------------------------------
+
+      const options = {
+        key: data.key,
+
+        amount: data.order.amount,
+
+        currency: data.order.currency,
+
+        name: "BG Remover",
+
+        description: `${plan.credits} image credits`,
+
+        order_id: data.order.id,
+
+        prefill: {
+          name: user?.fullName || "",
+          email: user?.primaryEmailAddress?.emailAddress || "",
+        },
+
+        theme: {
+          color: "#5F6FFF",
+        },
+
+        handler: async function (response) {
+          try {
+            // --------------------------------
+            // Verify payment on backend
+            // --------------------------------
+
+            const verifyResponse =
+              await axiosClient.post(
+                "/user/verify-payment",
+                {
+                  razorpay_order_id:
+                    response.razorpay_order_id,
+
+                  razorpay_payment_id:
+                    response.razorpay_payment_id,
+
+                  razorpay_signature:
+                    response.razorpay_signature,
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+
+            if (!verifyResponse.data.success) {
+              throw new Error(
+                verifyResponse.data.message ||
+                  "Payment verification failed"
+              );
+            }
+
+            // Refresh credits
+            dispatch(getCredit(getToken));
+
+            alert(
+              `${verifyResponse.data.creditsAdded} credits added successfully!`
+            );
+
+          } catch (error) {
+            console.error(
+              "Payment verification error:",
+              error
+            );
+
+            alert(
+              error.response?.data?.message ||
+                error.message ||
+                "Payment verification failed"
+            );
+          } finally {
+            setLoadingPlan(null);
+          }
+        },
+
+        modal: {
+          ondismiss: () => {
+            setLoadingPlan(null);
+          },
+        },
+      };
+
+      const razorpay =
+        new window.Razorpay(options);
+
+      razorpay.on(
+        "payment.failed",
+        function (response) {
+          console.error(
+            "Payment failed:",
+            response.error
+          );
+
+          alert(
+            response.error?.description ||
+              "Payment failed"
+          );
+
+          setLoadingPlan(null);
+        }
+      );
+
+      razorpay.open();
+
+    } catch (error) {
+      console.error(
+        "Create payment error:",
+        error
+      );
+
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to start payment"
+      );
+
+      setLoadingPlan(null);
+    }
+  };
+
   return (
-    <div className="min-h-[80vh] text-center pt-14 pb-20 px-4">
+    <div className="min-h-[80vh] px-6 py-16">
 
-      {/* Heading */}
-      <button
-        className=" px-5 py-2 rounded-full border border-purple-200 bg-purple-50 text-purple-600 text-sm font-medium"
-      >
-        Our Plans
-      </button>
+      <div className="max-w-6xl mx-auto">
 
-      <h1 className="mt-5 text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900">
-        Choose the plan that's
-        <br />
-        <span className="bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent">
-          right for you
-        </span>
-      </h1>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900">
+            Buy Credits
+          </h1>
 
-      <p className="mt-4 text-slate-500 max-w-2xl mx-auto">
-        Get more credits and remove backgrounds from your images with ease.
-        Choose a plan that works best for you.
-      </p>
+          <p className="mt-4 text-slate-500">
+            Choose a credit plan and keep removing backgrounds.
+          </p>
+        </div>
 
-      {/* Plans */}
-      <div
-        className=" max-w-6xl mx-auto mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left"
-      >
-        {plans.map((item, index) => (
-          <div
-            key={index}
-            className={`
-              relative
-              bg-white
-              rounded-2xl
-              border
-              p-8
-              shadow-sm
-              hover:shadow-xl
-              hover:-translate-y-2
-              transition-all duration-300
-              ${
-                index === 1
-                  ? "border-purple-400 ring-2 ring-purple-100"
-                  : "border-slate-200"
-              }
-            `}
-          >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            {/* Popular Badge */}
-            {index === 1 && (
-              <div
-                className="
+          {plans.map((plan) => (
+            <div
+              key={plan.id}
+              className={`
+                relative
+                rounded-2xl
+                border
+                p-8
+                bg-white
+                shadow-sm
+                transition
+                hover:-translate-y-1
+                hover:shadow-lg
+                ${
+                  plan.popular
+                    ? "border-purple-300 ring-2 ring-purple-100"
+                    : "border-slate-200"
+                }
+              `}
+            >
+
+              {plan.popular && (
+                <div className="
                   absolute
-                  -top-4
+                  -top-3
                   left-1/2
                   -translate-x-1/2
-                  px-4 py-1.5
+                  px-4
+                  py-1
                   rounded-full
-                  bg-gradient-to-r from-purple-500 to-pink-500
+                  bg-purple-600
                   text-white
-                  text-xs font-semibold
+                  text-xs
+                  font-semibold
+                ">
+                  Most Popular
+                </div>
+              )}
+
+              <h2 className="text-xl font-bold text-slate-900">
+                {plan.name}
+              </h2>
+
+              <p className="mt-4 text-4xl font-bold text-slate-900">
+                ₹{plan.price}
+              </p>
+
+              <p className="mt-2 text-slate-500">
+                {plan.credits} credits
+              </p>
+
+              <button
+                onClick={() => handlePurchase(plan)}
+                disabled={loadingPlan === plan.id}
+                className="
+                  w-full
+                  mt-8
+                  py-3
+                  rounded-xl
+                  bg-slate-900
+                  text-white
+                  font-medium
+                  hover:bg-slate-800
+                  transition
+                  disabled:opacity-50
+                  disabled:cursor-not-allowed
                 "
               >
-                MOST POPULAR
-              </div>
-            )}
+                {loadingPlan === plan.id
+                  ? "Processing..."
+                  : "Buy Now"}
+              </button>
 
-            {/* Icon */}
-            <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-purple-50 mb-6">
-              <img
-                src={assets.logo_icon}
-                alt="Plan"
-                className="w-8 h-8 object-contain"
-              />
             </div>
+          ))}
 
-            {/* Plan Name */}
-            <p className="text-xl font-bold text-slate-900">
-              {item.id}
-            </p>
-
-            {/* Description */}
-            <p className="mt-2 text-sm text-slate-500 min-h-[45px]">
-              {item.desc}
-            </p>
-
-            {/* Price */}
-            <div className="mt-6 flex items-baseline gap-1">
-              <span className="text-4xl font-bold text-slate-900">
-                ${item.price}
-              </span>
-
-              <span className="text-sm text-slate-500">
-                / {item.credits} credits
-              </span>
-            </div>
-
-            {/* Purchase Button */}
-            <button
-              className="
-                mt-8
-                w-full
-                py-3
-                rounded-xl
-                bg-slate-900
-                text-white
-                font-medium
-                hover:bg-purple-600
-                transition-colors duration-200
-              "
-            >
-              Purchase
-            </button>
-
-          </div>
-        ))}
+        </div>
       </div>
-
     </div>
   );
 };
 
-export default BuyCreadit;
+export default BuyCredits;
 
